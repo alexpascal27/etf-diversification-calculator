@@ -55,8 +55,7 @@ class ETFDiversificationCalculator:
             return False
 
         wait.until(self._get_to_starting_place)
-        # TODO: add the below back in
-        #  driver.quit()
+        driver.quit()
 
     def generate_report(self):
         for symbol in self.etf_symbols:
