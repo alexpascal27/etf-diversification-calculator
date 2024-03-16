@@ -18,6 +18,18 @@ from selenium.webdriver.support.ui import WebDriverWait
 '''
 
 
+class Share:
+    def __init__(self, name: str, percentage_of_etf: float):
+        self.name = name
+        self.percentage_of_etf = percentage_of_etf
+
+
+class ETF:
+    def __init__(self, name: str, shares: list[Share]):
+        self.name = name
+        self.shares = shares
+
+
 class ETFDiversificationCalculator:
     ETF_BREAKDOWN_STARTING_HEIGHT = 1550
 
@@ -39,7 +51,7 @@ class ETFDiversificationCalculator:
         if args.symbols:
             self.etf_symbols = args.symbols
 
-    def _init_browser(self, etf_symbol):
+    def _init_browser(self, etf_symbol) -> webdriver:
         driver = webdriver.Firefox()
         driver.implicitly_wait(self.wait_time)
         url = "https://investengine.com/etfs/" + etf_symbol
@@ -51,56 +63,58 @@ class ETFDiversificationCalculator:
             return None
         return driver
 
+    @staticmethod
+    def _get_name_list(driver) -> list[str]:
+        holding_name_elements = driver.find_elements(By.XPATH,
+                                                     "//span[@class='Text_Text_lineHeightDesktop_16__KflzO "
+                                                     "Text_Text_lineHeightMobile_16__qTdTf "
+                                                     "Text_Text_sizeDesktop_14__RJHrm Text_Text_sizeMobile_14__TOFG7 "
+                                                     "Text_Text_overflowDesktop_ellipsis__2x2Mg "
+                                                     "Text_Text_overflowMobile_ellipsis__i35Ut']")
 
-    def _get_to_starting_place(self, driver):
-        driver.execute_script("window.scrollTo(0, {})".format(self.ETF_BREAKDOWN_STARTING_HEIGHT))
+        return [element.text for element in holding_name_elements if element.text != ""]
 
-    def _scroll_down(self, driver):
-        driver.execute_script("window.scrollBy(0, 500);")
-        # time.sleep(2)  # Adjust the sleep time as necessary
+    @staticmethod
+    def _get_perc_list(driver) -> list[float]:
+        holding_perc_elements = driver.find_elements(By.XPATH, "//span[@class='Nobr_Nobr__f_hb7']")
+        perc_list: list[float] = []
+        for element in holding_perc_elements:
+            text = element.text
+            if text != "" and '%' in text:
+                new_text = text.replace('%', '')
+                if '<' in new_text:
+                    new_text = new_text.replace("< ", '')
+                    new_text = '0.001'
+                try:
+                    float_value = float(new_text)
+                    perc_list.append(float_value)
+                except ValueError:
+                    continue
+        perc_list.pop()  # remove the last element as it is not a holding percentage but showing annual yield
+        return perc_list
 
-    def _is_element_in_view(self, driver, elem):
-        elem_left_bound = elem.location.get('x')
-        elem_top_bound = elem.location.get('y')
-        elem_width = elem.size.get('width')
-        elem_height = elem.size.get('height')
-        elem_right_bound = elem_left_bound + elem_width
-        elem_lower_bound = elem_top_bound + elem_height
+    '''
+    :returns # {ETF_NAME -> [...shares: {{percentage_of_etf: 0.0, name: "Apple Inc."}}]}
+    '''
 
-        win_upper_bound = driver.execute_script('return window.pageYOffset')
-        win_left_bound = driver.execute_script('return window.pageXOffset')
-        win_width = driver.execute_script('return document.documentElement.clientWidth')
-        win_height = driver.execute_script('return document.documentElement.clientHeight')
-        win_right_bound = win_left_bound + win_width
-        win_lower_bound = win_upper_bound + win_height
+    def _get_etf(self, driver, etf_symbol: str) -> ETF:
+        name_list: list[str] = self._get_name_list(driver)
+        perc_list: list[float] = self._get_perc_list(driver)
 
-        return all((win_left_bound <= elem_left_bound,
-                    win_right_bound >= elem_right_bound,
-                    win_upper_bound <= elem_top_bound,
-                    win_lower_bound >= elem_lower_bound)
-                   )
+        share_list: list[Share] = []
+        for i in range(len(name_list)):
+            share_list.append(Share(name_list[i], perc_list[i]))
 
-    def _at_end_of_page(self, driver):
-        title_element = driver.find_element(By.XPATH, "//*[text()='Why InvestEngine']")
-        return self._is_element_in_view(driver, title_element)
-
-    def _get_etf_holdings(self, driver):
-        holding_elements = driver.find_elements(By.XPATH,
-                                                "//span[@class='Text_Text_lineHeightDesktop_16__KflzO "
-                                                "Text_Text_lineHeightMobile_16__qTdTf "
-                                                "Text_Text_sizeDesktop_14__RJHrm Text_Text_sizeMobile_14__TOFG7 "
-                                                "Text_Text_overflowDesktop_ellipsis__2x2Mg "
-                                                "Text_Text_overflowMobile_ellipsis__i35Ut']")
-
-        return [element.text for element in holding_elements if element.text != ""]
+        return ETF(etf_symbol, share_list)
 
     def _get_etf_from_investengine(self, etf_symbol):
         driver = self._init_browser(etf_symbol)
-        etf_holdings = self._get_etf_holdings(driver)
+        etf = self._get_etf(driver, etf_symbol)
 
         driver.quit()
 
     def generate_report(self):
+
         for symbol in self.etf_symbols:
             self._get_etf_from_investengine(symbol)
 
