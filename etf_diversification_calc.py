@@ -1,12 +1,9 @@
 import argparse
-import math
-import time
-import pandas as pd
+import statistics
+import itertools
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
 
 '''
     File name: etf_diversification_calc.py
@@ -28,6 +25,25 @@ class ETF:
     def __init__(self, name: str, shares: list[Share]):
         self.name = name
         self.shares = shares
+
+
+class Comparison:
+    def __init__(self, etf1: list[Share], etf2: list[Share]):
+        self.etf1 = etf1
+        self.etf2 = etf2
+        self.common_shares = self._get_common_shares(etf1, etf2)
+        self.etf1_perc = 100 * len(self.common_shares) / len(etf1)
+        self.etf2_perc = 100 * len(self.common_shares) / len(etf2)
+
+    @staticmethod
+    def _get_common_shares(etf1: list[Share], etf2: list[Share]) -> list[Share]:
+        common_shares = []
+        for share in etf1:
+            for otherShare in etf2:
+                if share.name == otherShare.name:
+                    common_shares.append(Share(share.name, statistics.mean([share.percentage_of_etf, otherShare.percentage_of_etf])))
+                    break
+        return common_shares
 
 
 class ETFDiversificationCalculator:
@@ -83,7 +99,6 @@ class ETFDiversificationCalculator:
             if text != "" and '%' in text:
                 new_text = text.replace('%', '')
                 if '<' in new_text:
-                    new_text = new_text.replace("< ", '')
                     new_text = '0.001'
                 try:
                     float_value = float(new_text)
@@ -94,7 +109,7 @@ class ETFDiversificationCalculator:
         return perc_list
 
     '''
-    :returns # {ETF_NAME -> [...shares: {{percentage_of_etf: 0.0, name: "Apple Inc."}}]}
+    :returns {ETF_NAME -> [...shares: {{percentage_of_etf: 0.0, name: "Apple Inc."}}]}
     '''
 
     def _get_etf(self, driver, etf_symbol: str) -> ETF:
@@ -113,10 +128,38 @@ class ETFDiversificationCalculator:
 
         driver.quit()
 
-    def generate_report(self):
+        return etf
 
+    @staticmethod
+    def _get_unique_tuple_combinations(elements: list[str]) -> list[tuple[str, str]]:
+        """
+        Precondition: `elements` does not contain duplicates.
+        Postcondition: Returns unique combinations of length 2 from `elements`.
+
+        >>> _get_unique_tuple_combinations(["apple", "orange", "banana"])
+        [("apple", "orange"), ("apple", "banana"), ("orange", "banana")]
+        """
+        return list(itertools.combinations(elements, 2))
+
+    def generate_report(self):
+        etfs: dict[str, list[Share]] = {}
         for symbol in self.etf_symbols:
-            self._get_etf_from_investengine(symbol)
+            etf: ETF = self._get_etf_from_investengine(symbol)
+            etfs[etf.name] = etf.shares
+
+        if len(self.etf_symbols) > 1:
+            unique_combinations = self._get_unique_tuple_combinations(self.etf_symbols)
+            for combo in unique_combinations:
+                comparison: Comparison = Comparison(etfs[combo[0]], etfs[combo[1]])
+                # write to file
+                print(f"Common Share #: {combo[0]} vs {combo[1]}: "
+                      + str(len(comparison.common_shares)) +
+                      f"\nPercentage similar: {combo[0]}: {comparison.etf1_perc}% AND {combo[1]}: {comparison.etf2_perc}%"
+                      + "\n")
+                for common_share in comparison.common_shares:
+                    print(f"Common Share: {common_share.name} - {common_share.percentage_of_etf}% \n")
+        else:
+            print("Only one ETF provided, no comparison to be made")
 
 
 def main():
