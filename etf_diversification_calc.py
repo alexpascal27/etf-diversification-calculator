@@ -1,6 +1,9 @@
 import argparse
 import statistics
 import itertools
+
+import numpy as np
+import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
@@ -41,13 +44,15 @@ class Comparison:
         for share in etf1:
             for otherShare in etf2:
                 if share.name == otherShare.name:
-                    common_shares.append(Share(share.name, statistics.mean([share.percentage_of_etf, otherShare.percentage_of_etf])))
+                    common_shares.append(
+                        Share(share.name, statistics.mean([share.percentage_of_etf, otherShare.percentage_of_etf])))
                     break
         return common_shares
 
 
 class ETFDiversificationCalculator:
     ETF_BREAKDOWN_STARTING_HEIGHT = 1550
+    FILE_PATH = "comparison.csv"
 
     def __init__(self):
         # variables
@@ -141,6 +146,28 @@ class ETFDiversificationCalculator:
         """
         return list(itertools.combinations(elements, 2))
 
+    @staticmethod
+    def _convert_comparison_to_dataframe(comparison: Comparison, etf1_symbol: str, etf2_symbol: str) -> pd.DataFrame:
+        common_share_dict_list = [
+            {"Common Share": common_share.name, "Percentage of ETF": np.round(common_share.percentage_of_etf, 2)} for common_share in
+            comparison.common_shares]
+        common_share_df = pd.DataFrame(common_share_dict_list)
+        summary_df = pd.DataFrame([{"Common Shares": len(comparison.common_shares),
+                                    f"{etf1_symbol}" + " Percentage Similar": np.round(comparison.etf1_perc, 2),
+                                    f"{etf2_symbol}" + " Percentage Similar": np.round(comparison.etf2_perc, 2)}])
+        return pd.concat([common_share_df, summary_df], axis=1)
+
+    def _write_to_file(self, i: int, df: pd.DataFrame, title: str) -> int:
+        if i == 0:
+            with open(self.FILE_PATH, 'w') as f:
+                f.write(title)
+                df.to_csv(f, sep='\t', index=False, mode='w', lineterminator='\n')
+        else:
+            with open(self.FILE_PATH, 'a') as f:
+                f.write(title)
+                df.to_csv(f, sep='\t', index=False, mode='a', header=False, lineterminator='\n')
+        return i + 1
+
     def generate_report(self):
         etfs: dict[str, list[Share]] = {}
         for symbol in self.etf_symbols:
@@ -149,15 +176,13 @@ class ETFDiversificationCalculator:
 
         if len(self.etf_symbols) > 1:
             unique_combinations = self._get_unique_tuple_combinations(self.etf_symbols)
+            i = 0
             for combo in unique_combinations:
                 comparison: Comparison = Comparison(etfs[combo[0]], etfs[combo[1]])
                 # write to file
-                print(f"Common Share #: {combo[0]} vs {combo[1]}: "
-                      + str(len(comparison.common_shares)) +
-                      f"\nPercentage similar: {combo[0]}: {comparison.etf1_perc}% AND {combo[1]}: {comparison.etf2_perc}%"
-                      + "\n")
-                for common_share in comparison.common_shares:
-                    print(f"Common Share: {common_share.name} - {common_share.percentage_of_etf}% \n")
+                i = self._write_to_file(i, self._convert_comparison_to_dataframe(comparison, combo[0], combo[1]),
+                                        f"Comparison between {combo[0]} and {combo[1]}:\n")
+            print(f"Comparison file written to {self.FILE_PATH}")
         else:
             print("Only one ETF provided, no comparison to be made")
 
