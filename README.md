@@ -9,6 +9,7 @@
 - [Resources](#resources)
 - [Author](#author)
 - [Inspiration](#inspiration)
+- [License](#license)
 
 ## Dependencies
 `pip install` the following:
@@ -46,3 +47,7 @@ All data comes from InvestEngine view [Selenium](https://selenium-python.readthe
 
 ## Inspiration
 https://github.com/PiperBatey/holdings_dl
+
+## License
+
+MIT License (see LICENSE file)
