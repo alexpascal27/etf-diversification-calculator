@@ -52,7 +52,7 @@ class Comparison:
 
 class ETFDiversificationCalculator:
     ETF_BREAKDOWN_STARTING_HEIGHT = 1550
-    FILE_PATH = "comparison.csv"
+    FILE_PATH = "comparison.xlsx"
 
     def __init__(self):
         # variables
@@ -149,7 +149,8 @@ class ETFDiversificationCalculator:
     @staticmethod
     def _convert_comparison_to_dataframe(comparison: Comparison, etf1_symbol: str, etf2_symbol: str) -> pd.DataFrame:
         common_share_dict_list = [
-            {"Common Share": common_share.name, "Percentage of ETF": np.round(common_share.percentage_of_etf, 2)} for common_share in
+            {"Common Share": common_share.name, "Percentage of ETF": np.round(common_share.percentage_of_etf, 2)} for
+            common_share in
             comparison.common_shares]
         common_share_df = pd.DataFrame(common_share_dict_list)
         summary_df = pd.DataFrame([{"Common Shares": len(comparison.common_shares),
@@ -157,15 +158,9 @@ class ETFDiversificationCalculator:
                                     f"{etf2_symbol}" + " Percentage Similar": np.round(comparison.etf2_perc, 2)}])
         return pd.concat([common_share_df, summary_df], axis=1)
 
-    def _write_to_file(self, i: int, df: pd.DataFrame, title: str) -> int:
-        if i == 0:
-            with open(self.FILE_PATH, 'w') as f:
-                f.write(title)
-                df.to_csv(f, sep='\t', index=False, mode='w', lineterminator='\n')
-        else:
-            with open(self.FILE_PATH, 'a') as f:
-                f.write(title)
-                df.to_csv(f, sep='\t', index=False, mode='a', header=False, lineterminator='\n')
+    @staticmethod
+    def _write_to_file(i: int, df: pd.DataFrame, writer, title: str) -> int:
+        df.to_excel(writer, sheet_name=title, index=False)
         return i + 1
 
     def generate_report(self):
@@ -177,11 +172,12 @@ class ETFDiversificationCalculator:
         if len(self.etf_symbols) > 1:
             unique_combinations = self._get_unique_tuple_combinations(self.etf_symbols)
             i = 0
-            for combo in unique_combinations:
-                comparison: Comparison = Comparison(etfs[combo[0]], etfs[combo[1]])
-                # write to file
-                i = self._write_to_file(i, self._convert_comparison_to_dataframe(comparison, combo[0], combo[1]),
-                                        f"Comparison between {combo[0]} and {combo[1]}:\n")
+            with pd.ExcelWriter(self.FILE_PATH) as writer:
+                for combo in unique_combinations:
+                    comparison: Comparison = Comparison(etfs[combo[0]], etfs[combo[1]])
+                    # write to file
+                    i = self._write_to_file(i, self._convert_comparison_to_dataframe(comparison, combo[0], combo[1]),
+                                            writer, 'Comparison between ' + combo[0].split('/')[1].capitalize() + ' and ' + combo[1].split('/')[1].capitalize())
             print(f"Comparison file written to {self.FILE_PATH}")
         else:
             print("Only one ETF provided, no comparison to be made")
