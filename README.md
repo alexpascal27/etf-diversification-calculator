@@ -40,7 +40,7 @@ Then run the script with the symbols as arguments. E.g.
 A sheet for each 1-to-1 comparison and a summary sheet with scores.
 
 ## Resources
-All data comes from InvestEngine view [Selenium](https://selenium-python.readthedocs.io/)
+All data comes from InvestEngine via [Selenium](https://selenium-python.readthedocs.io/)
 
 ## Author
 * **Alex Pascal** (https://github.com/alexpascal27)
