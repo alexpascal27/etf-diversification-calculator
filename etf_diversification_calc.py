@@ -184,12 +184,11 @@ class ETFDiversificationCalculator:
         for row in holdings_table.itertuples():
             row_perc = row.Value
             row_name: str = row.Paper
-            if len(self.investengine_etf_symbols) > 1:
-                try:
-                    row_name = re.split(r'[^a-zA-Z]+', row_name)[0].lower()
-                except:
-                    print(f"Invalid name {row_name} found in {etf_symbol} holdings table, at index: {row.Index}")
-                    continue
+            try:
+                row_name = re.split(r'[^a-zA-Z]+', row_name)[0].lower()
+            except:
+                print(f"Invalid name {row_name} found in {etf_symbol} holdings table, at index: {row.Index}")
+                continue
 
             if '%' in row_perc:
                 perc = float(row_perc.replace('%', ''))
