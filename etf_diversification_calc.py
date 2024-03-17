@@ -149,13 +149,13 @@ class ETFDiversificationCalculator:
     @staticmethod
     def _convert_comparison_to_dataframe(comparison: Comparison, etf1_symbol: str, etf2_symbol: str) -> pd.DataFrame:
         common_share_dict_list = [
-            {"Common Share": common_share.name, "Percentage of ETF": np.round(common_share.percentage_of_etf, 2)} for
+            {"Common Share": common_share.name, "% of ETF": np.round(common_share.percentage_of_etf, 2)} for
             common_share in
             comparison.common_shares]
         common_share_df = pd.DataFrame(common_share_dict_list)
         summary_df = pd.DataFrame([{"Common Shares": len(comparison.common_shares),
-                                    f"{etf1_symbol}" + " Percentage Similar": np.round(comparison.etf1_perc, 2),
-                                    f"{etf2_symbol}" + " Percentage Similar": np.round(comparison.etf2_perc, 2)}])
+                                    f"{etf1_symbol}".split('/')[1].capitalize() + " % Similar": np.round(comparison.etf1_perc, 2),
+                                    f"{etf2_symbol}".split('/')[1].capitalize() + " % Similar": np.round(comparison.etf2_perc, 2)}])
         return pd.concat([common_share_df, summary_df], axis=1)
 
     @staticmethod
